@@ -186,6 +186,33 @@ const KEY_ALIASES: Record<string, string> = {
   Subtract: "-",
 };
 
+// Bindings name the key as printed on it, but a shifted press reports the shifted glyph
+// (Ctrl+Shift+\ arrives with key "|", Shift+Alt+0 arrives with key ")"). Resolving the
+// key from event.code keeps chords like Ctrl+Shift+\ and Shift+Alt+0 reachable.
+// "Equal" is left out: Ctrl++ relies on its own shift-stripping rule below.
+const SHIFTED_PUNCTUATION_BASES: Record<string, string> = {
+  Backslash: "\\",
+  Semicolon: ";",
+  Quote: "'",
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Backquote: "`",
+  Minus: "-",
+  Digit0: "0",
+  Digit1: "1",
+  Digit2: "2",
+  Digit3: "3",
+  Digit4: "4",
+  Digit5: "5",
+  Digit6: "6",
+  Digit7: "7",
+  Digit8: "8",
+  Digit9: "9",
+};
+
 export function resolveKeymapProfile(profile: KeymapProfile, workMode: "single" | "workspace"): ResolvedKeymapProfile {
   if (profile !== "adaptive") return profile;
   return workMode === "workspace" ? "vscode" : "notepad-plus-plus";
@@ -212,6 +239,9 @@ export function keyboardEventStroke(event: KeyboardEvent): string | null {
   if (event.isComposing || ["Control", "Shift", "Alt", "Meta"].includes(event.key)) return null;
   let key = KEY_ALIASES[event.key] ?? event.key;
   if (key.length === 1 && /[a-z]/i.test(key)) key = key.toUpperCase();
+  if (event.shiftKey && event.code) {
+    key = SHIFTED_PUNCTUATION_BASES[event.code] ?? key;
+  }
   const modifiers = [
     event.ctrlKey ? "Ctrl" : "",
     event.shiftKey ? "Shift" : "",

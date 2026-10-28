@@ -22,6 +22,17 @@ const implementedCommands = new Set(
 );
 const failures = [];
 let testedStrokes = 0;
+const SHIFTED_GLYPHS = new Map([
+  [";", ":"], ["'", '"'], [",", "<"], [".", ">"], ["/", "?"], ["`", "~"],
+  ["[", "{"], ["]", "}"], ["\\", "|"], ["-", "_"],
+  ["0", ")"], ["1", "!"], ["2", "@"], ["3", "#"], ["4", "$"], ["5", "%"],
+  ["6", "^"], ["7", "&"], ["8", "*"], ["9", "("],
+]);
+const PHYSICAL_CODES = new Map([
+  [";", "Semicolon"], ["'", "Quote"], [",", "Comma"], [".", "Period"], ["/", "Slash"],
+  ["`", "Backquote"], ["[", "BracketLeft"], ["]", "BracketRight"], ["\\", "Backslash"],
+  ["-", "Minus"], ["=", "Equal"], [" ", "Space"],
+]);
 
 if (!mainSource.includes('$("editor").addEventListener("keydown", handleEditorKeybinding, true)')) {
   failures.push("Monaco 编辑器没有注册局部快捷键监听");
@@ -92,19 +103,8 @@ for (const [profileName, profile] of profiles) {
         failures.push(`${profileName}: ${commandId} 键位未规范化：${binding}`);
       }
       for (const stroke of binding.split(" ")) {
-        const parts = stroke.split("+");
-        const key = stroke.endsWith("++") ? "+" : parts.pop();
-        const modifiers = new Set(parts);
-        const event = {
-          key,
-          ctrlKey: modifiers.has("Ctrl"),
-          shiftKey: modifiers.has("Shift") || key === "+",
-          altKey: modifiers.has("Alt"),
-          metaKey: modifiers.has("Meta"),
-          isComposing: false,
-        };
-        const actual = keybindings.keyboardEventStroke(event);
-        if (actual !== stroke) failures.push(`${profileName}: ${commandId} 的 ${stroke} 被解析为 ${actual}`);
+        const actual = keybindings.keyboardEventStroke(physicalKeyEvent(stroke));
+        if (actual !== stroke) failures.push(`${profileName}: ${commandId} 的 ${stroke} 实际按键被解析为 ${actual}`);
         testedStrokes += 1;
       }
     }
@@ -169,6 +169,43 @@ if (failures.length > 0) {
   process.exitCode = 1;
 } else {
   console.log(`快捷键验证通过：2 套键位，${testedStrokes} 个按键 stroke，${monacoActionIds.size} 个 Monaco action。`);
+}
+
+// 按声明的键位还原浏览器真正上报的 key/code/shiftKey，避免用键位字符串自证
+function physicalKeyEvent(stroke) {
+  const parts = stroke.split("+");
+  const plusChord = stroke.endsWith("++");
+  const modifiers = new Set(parts.slice(0, -1));
+  const key = plusChord ? "+" : parts[parts.length - 1];
+  const shift = modifiers.has("Shift");
+  let actualKey = key;
+  let code = key;
+  if (plusChord) {
+    actualKey = "+";
+    code = "Equal";
+    modifiers.add("Shift");
+  } else if (/^[A-Z]$/.test(key)) {
+    actualKey = shift ? key : key.toLowerCase();
+    code = `Key${key}`;
+  } else if (/^[0-9]$/.test(key)) {
+    actualKey = shift ? SHIFTED_GLYPHS.get(key) : key;
+    code = `Digit${key}`;
+  } else if (key === "Space") {
+    actualKey = " ";
+    code = "Space";
+  } else if (SHIFTED_GLYPHS.has(key) || PHYSICAL_CODES.has(key)) {
+    actualKey = shift ? (SHIFTED_GLYPHS.get(key) ?? key) : key;
+    code = PHYSICAL_CODES.get(key) ?? key;
+  }
+  return {
+    key: actualKey,
+    code,
+    ctrlKey: modifiers.has("Ctrl"),
+    shiftKey: modifiers.has("Shift"),
+    altKey: modifiers.has("Alt"),
+    metaKey: modifiers.has("Meta"),
+    isComposing: false,
+  };
 }
 
 function readJavaScriptTree(url) {
