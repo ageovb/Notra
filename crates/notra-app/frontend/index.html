@@ -200,6 +200,7 @@
       <section class="popover app-menu hidden" id="viewMenu" role="menu" aria-label="视图菜单">
         <div class="menu-list">
           <button class="menu-row" id="menuWordWrapButton" role="menuitem"><span class="icon-slot" data-icon="WrapText"></span><strong>自动换行</strong><small></small></button>
+          <button class="menu-row" id="menuColumnModeButton" role="menuitem"><span class="icon-slot" data-icon="Columns3"></span><strong>列编辑模式</strong><small></small></button>
           <button class="menu-row" id="menuMarkdownWysiwygButton" role="menuitemradio"><span class="icon-slot" data-icon="NotebookPen"></span><strong>Markdown 即时编辑</strong><small></small></button>
           <button class="menu-row" id="menuMarkdownSplitButton" role="menuitemradio"><span class="icon-slot" data-icon="Columns2"></span><strong>Markdown 分屏预览</strong><small></small></button>
           <button class="menu-row" id="menuMarkdownSourceButton" role="menuitemradio"><span class="icon-slot" data-icon="FileCode2"></span><strong>Markdown 源码</strong><small></small></button>
@@ -555,6 +556,28 @@
                   <button data-value="none">关闭</button>
                   <button data-value="selection">选区</button>
                   <button data-value="all">全部</button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="Columns3"></span>
+                <div>
+                  <strong>列编辑模式</strong>
+                  <span>拖拽和方向键按矩形列块选择；关闭时 Alt+拖拽仍可临时矩形选择</span>
+                </div>
+                <div class="seg-control" id="settingsColumnSelectionControl">
+                  <button data-value="off">关闭</button>
+                  <button data-value="on">开启</button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-row-icon icon-slot" data-icon="Move"></span>
+                <div>
+                  <strong>拖动选中文本</strong>
+                  <span>拖动选区移动文本，按住 Ctrl 拖动为复制</span>
+                </div>
+                <div class="seg-control" id="settingsDragAndDropControl">
+                  <button data-value="off">关闭</button>
+                  <button data-value="on">开启</button>
                 </div>
               </div>
               <div class="settings-row">

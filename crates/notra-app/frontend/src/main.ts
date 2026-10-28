@@ -26,6 +26,7 @@ import {
   ClipboardCopy,
   ClipboardPaste,
   Columns2,
+  Columns3,
   Command,
   Code2,
   Copy,
@@ -68,6 +69,7 @@ import {
   Minus,
   Moon,
   MonitorCog,
+  Move,
   MousePointerClick,
   NotebookPen,
   PanelLeftClose,
@@ -127,6 +129,7 @@ import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker"
 import "monaco-editor/esm/vs/basic-languages/monaco.contribution";
 import "monaco-editor/esm/vs/editor/contrib/linesOperations/browser/linesOperations";
 import "monaco-editor/esm/vs/editor/contrib/bracketMatching/browser/bracketMatching";
+import "monaco-editor/esm/vs/editor/contrib/dnd/browser/dnd";
 import "monaco-editor/esm/vs/editor/contrib/wordHighlighter/browser/wordHighlighter";
 import "monaco-editor/esm/vs/language/json/monaco.contribution";
 import "./styles.css";
@@ -321,6 +324,8 @@ interface SessionSnapshot {
   minimap: boolean;
   smoothCaretAnimation: boolean;
   renderWhitespace: RenderWhitespaceMode;
+  columnSelection?: boolean;
+  dragAndDrop?: boolean;
   fontSize: number;
   shellFontMode: FontMode;
   shellFontPreset: ShellFontPreset;
@@ -787,6 +792,8 @@ const state = {
   minimap: false,
   smoothCaretAnimation: false,
   renderWhitespace: "selection" as RenderWhitespaceMode,
+  columnSelection: false,
+  dragAndDrop: true,
   fontSize: DEFAULT_EDITOR_FONT_SIZE,
   shellFontMode: "preset" as FontMode,
   shellFontPreset: DEFAULT_SHELL_FONT_PRESET as ShellFontPreset,
@@ -956,6 +963,7 @@ const lucideIcons: Record<string, IconNode> = {
   ClipboardCopy,
   ClipboardPaste,
   Columns2,
+  Columns3,
   Command,
   Code2,
   Copy,
@@ -998,6 +1006,7 @@ const lucideIcons: Record<string, IconNode> = {
   Minus,
   Moon,
   MonitorCog,
+  Move,
   MousePointerClick,
   NotebookPen,
   PanelLeftClose,
@@ -1216,7 +1225,7 @@ function bootstrap() {
     autoClosingBrackets: "languageDefined",
     autoClosingQuotes: "languageDefined",
     autoSurround: "languageDefined",
-    dragAndDrop: true,
+    dragAndDrop: state.dragAndDrop,
     links: true,
     hover: { enabled: true, delay: 300 },
     parameterHints: { enabled: true, cycle: true },
@@ -1224,7 +1233,9 @@ function bootstrap() {
     tabCompletion: "on",
     wordBasedSuggestions: "currentDocument",
     quickSuggestions: { other: true, comments: false, strings: false },
-    multiCursorModifier: "alt",
+    // Alt is reserved for rectangular (column) selection, so multi-cursor moves to Ctrl/Cmd.
+    multiCursorModifier: "ctrlCmd",
+    columnSelection: state.columnSelection,
     multiCursorPaste: "spread",
     copyWithSyntaxHighlighting: true,
     unicodeHighlight: {
@@ -1246,6 +1257,7 @@ function bootstrap() {
   bindActions();
   bindTabScroller();
   bindFileDrop();
+  bindEditorTextDragGuard();
   bindWindowControls();
   bindWindowCloseGuard();
   bindExplorerResize();
@@ -1460,6 +1472,12 @@ function isDropPositionInsideEditor(position: { x: number; y: number }) {
   return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }
 
+function bindEditorTextDragGuard() {
+  // Monaco moves text with pointer events. A browser-initiated drag would hand
+  // the gesture to Tauri's native drop target, where the drop gets lost.
+  $("editor").addEventListener("dragstart", (event) => event.preventDefault());
+}
+
 function setFileDropActive(active: boolean) {
   $("editorArea").classList.toggle("file-drop-active", active);
 }
@@ -1569,6 +1587,7 @@ function registerAppCommands() {
     command("view.toggleWordWrap", "切换自动换行", "视图", toggleWordWrap),
     command("view.toggleMinimap", "切换缩略图", "视图", toggleMinimap),
     command("view.toggleWhitespace", "切换空白符", "视图", cycleWhitespace),
+    command("view.toggleColumnSelection", "切换列编辑模式", "视图", toggleColumnSelection),
     command("view.zoomIn", "增大编辑器字号", "视图", () => setFontSize(state.fontSize + 1), { allowInInput: true }),
     command("view.zoomOut", "减小编辑器字号", "视图", () => setFontSize(state.fontSize - 1), { allowInInput: true }),
     command("view.zoomReset", "重置编辑器字号", "视图", () => setFontSize(DEFAULT_EDITOR_FONT_SIZE), { allowInInput: true }),
@@ -1872,6 +1891,8 @@ function bindActions() {
   bindSegmentedSetting("settingsMinimapControl", (value) => setMinimap(value === "on"));
   bindSegmentedSetting("settingsCaretAnimationControl", (value) => setSmoothCaretAnimation(value === "on"));
   bindSegmentedSetting("settingsWhitespaceControl", (value) => setWhitespace(value as RenderWhitespaceMode));
+  bindSegmentedSetting("settingsColumnSelectionControl", (value) => setColumnSelection(value === "on"));
+  bindSegmentedSetting("settingsDragAndDropControl", (value) => setDragAndDrop(value === "on"));
   bindSegmentedSetting("settingsKeymapProfileControl", (value) => setKeymapProfile(value));
   bindSegmentedSetting("settingsMarkdownWidthControl", (value) => setMarkdownContentWidth(value));
   bindSegmentedSetting("settingsMarkdownControl", (value) => setMarkdownEditMode(value as MarkdownEditMode));
@@ -2114,6 +2135,7 @@ function bindAppMenus() {
   bindMenuAction("menuGoToLineButton", goToLine);
   bindMenuAction("menuCommandButton", openCommandPalette);
   bindMenuAction("menuWordWrapButton", toggleWordWrap);
+  bindMenuAction("menuColumnModeButton", toggleColumnSelection);
   bindMenuAction("menuMarkdownWysiwygButton", () => setMarkdownEditMode("wysiwyg"));
   bindMenuAction("menuMarkdownSplitButton", () => setMarkdownEditMode("split"));
   bindMenuAction("menuMarkdownSourceButton", () => setMarkdownEditMode("source"));
@@ -2817,6 +2839,29 @@ function setWhitespace(value: RenderWhitespaceMode) {
   renderSettingsMenu();
   scheduleSessionSave();
   log(`空白符显示：${whitespaceLabel(state.renderWhitespace)}`);
+}
+
+function setColumnSelection(enabled: boolean) {
+  if (state.columnSelection === enabled) return;
+  state.columnSelection = enabled;
+  applyEditorSettings();
+  renderChrome();
+  renderSettingsMenu();
+  scheduleSessionSave();
+  log(`列编辑 ${state.columnSelection ? "已开启" : "已关闭"}`);
+}
+
+function toggleColumnSelection() {
+  setColumnSelection(!state.columnSelection);
+}
+
+function setDragAndDrop(enabled: boolean) {
+  if (state.dragAndDrop === enabled) return;
+  state.dragAndDrop = enabled;
+  applyEditorSettings();
+  renderSettingsMenu();
+  scheduleSessionSave();
+  log(`选区拖动 ${state.dragAndDrop ? "已开启" : "已关闭"}`);
 }
 
 function setMarkdownContentWidth(value: string) {
@@ -5280,6 +5325,8 @@ function applyEditorPerformanceProfile(doc: OpenDocument) {
     wordWrap: !large && state.wordWrap ? "on" : "off",
     cursorSmoothCaretAnimation: state.smoothCaretAnimation ? "on" : "off",
     renderWhitespace: large ? "none" : state.renderWhitespace,
+    columnSelection: state.columnSelection,
+    dragAndDrop: state.dragAndDrop,
     fontFamily: editorFont,
     fontSize: state.fontSize,
     lineHeight: editorLineHeight(),
@@ -5511,6 +5558,7 @@ function renderChrome() {
   $<HTMLButtonElement>("menuCloseWorkspaceButton").disabled = !state.workspace;
   $("menuOutlineButton").classList.toggle("hidden", !isMarkdownLikeDocument(doc));
   $("menuWordWrapButton").classList.toggle("active", state.wordWrap);
+  $("menuColumnModeButton").classList.toggle("active", state.columnSelection);
   ["wysiwyg", "split", "source"].forEach((mode) => {
     const button = $<HTMLButtonElement>(`menuMarkdown${mode[0].toUpperCase()}${mode.slice(1)}Button`);
     const active = markdownDocument && state.markdownEditMode === mode;
@@ -5526,7 +5574,7 @@ function renderChrome() {
     : state.keybindingHint
       ? `<span class="keybinding-hint">${escapeHtml(state.keybindingHint)}</span>`
       : "";
-  $("statusDocumentState").textContent = [doc.readOnly ? "只读" : "", doc.encodingStatus]
+  $("statusDocumentState").textContent = [doc.readOnly ? "只读" : "", state.columnSelection ? "列编辑" : "", doc.encodingStatus]
     .filter(Boolean)
     .join(" · ");
   $("statusRight").innerHTML = [
@@ -5580,6 +5628,7 @@ function commandElementIds(): Record<string, string> {
   menuGoToLineButton: "navigation.goToLine",
   menuCommandButton: "navigation.commandPalette",
   menuWordWrapButton: "view.toggleWordWrap",
+  menuColumnModeButton: "view.toggleColumnSelection",
   menuOutlineButton: "markdown.outline",
   tabSaveButton: "file.save",
   tabSaveAsButton: "file.saveAs",
@@ -5770,6 +5819,8 @@ function renderSettingsMenu() {
   setSegmentedValue("settingsMinimapControl", state.minimap ? "on" : "off");
   setSegmentedValue("settingsCaretAnimationControl", state.smoothCaretAnimation ? "on" : "off");
   setSegmentedValue("settingsWhitespaceControl", state.renderWhitespace);
+  setSegmentedValue("settingsColumnSelectionControl", state.columnSelection ? "on" : "off");
+  setSegmentedValue("settingsDragAndDropControl", state.dragAndDrop ? "on" : "off");
   setSegmentedValue("settingsKeymapProfileControl", state.keymapProfile);
   setSegmentedValue("settingsMarkdownWidthControl", state.markdownContentWidth);
   setSegmentedValue("settingsMarkdownControl", state.markdownEditMode);
@@ -6227,6 +6278,8 @@ function resetEditorView() {
   state.minimap = false;
   state.smoothCaretAnimation = false;
   state.renderWhitespace = "selection";
+  state.columnSelection = false;
+  state.dragAndDrop = true;
   state.fontSize = DEFAULT_EDITOR_FONT_SIZE;
   state.shellFontMode = "preset";
   state.shellFontPreset = DEFAULT_SHELL_FONT_PRESET;
@@ -8352,6 +8405,8 @@ async function restoreSession() {
     state.minimap = snapshot.minimap ?? state.minimap;
     state.smoothCaretAnimation = snapshot.smoothCaretAnimation ?? state.smoothCaretAnimation;
     state.renderWhitespace = snapshot.renderWhitespace ?? state.renderWhitespace;
+    state.columnSelection = snapshot.columnSelection ?? state.columnSelection;
+    state.dragAndDrop = snapshot.dragAndDrop ?? state.dragAndDrop;
     state.fontSize = snapshot.fontSize ?? state.fontSize;
     state.shellFontMode = normalizeFontMode(snapshot.shellFontMode, state.shellFontMode);
     state.shellFontPreset = isShellFontPreset(snapshot.shellFontPreset) ? snapshot.shellFontPreset : state.shellFontPreset;
@@ -8635,6 +8690,8 @@ async function saveSession() {
     minimap: state.minimap,
     smoothCaretAnimation: state.smoothCaretAnimation,
     renderWhitespace: state.renderWhitespace,
+    columnSelection: state.columnSelection,
+    dragAndDrop: state.dragAndDrop,
     fontSize: state.fontSize,
     shellFontMode: state.shellFontMode,
     shellFontPreset: state.shellFontPreset,
