@@ -857,6 +857,10 @@ const collapsedKeybindingCategories = new Set<CommandCategory>(KEYBINDING_CATEGO
 let bookmarkDecorations: monaco.editor.IEditorDecorationsCollection | null = null;
 let tabMenuDocumentId = 0;
 let renderedTabsSignature = "";
+const TAB_DRAG_EDGE = 44;
+const TAB_DRAG_START_DISTANCE = 5;
+let tabDragActive = false;
+let tabDragFinishedAt = 0;
 let tabScrollFrame = 0;
 let tabScrollResizeObserver: ResizeObserver | null = null;
 let sqlFormatterWorker: Worker | null = null;
@@ -1256,6 +1260,7 @@ function bootstrap() {
 
   bindActions();
   bindTabScroller();
+  bindTabReorder();
   bindFileDrop();
   bindEditorTextDragGuard();
   bindWindowControls();
@@ -1350,6 +1355,133 @@ function revealActiveTab() {
     });
     scheduleTabScrollStateUpdate();
   });
+}
+
+function bindTabReorder() {
+  const tabs = $("tabs");
+  // Tauri hands native drags to its own drop target, which would swallow the
+  // gesture; keeping it inside the page lets the pointer handler finish it.
+  tabs.addEventListener("dragstart", (event) => event.preventDefault());
+  tabs.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    const target = event.target instanceof Element ? event.target : null;
+    const source = target?.closest<HTMLElement>(".tab");
+    if (!source || source.parentElement !== tabs || target?.closest(".tab-close")) return;
+    const documentId = Number(source.dataset.documentId);
+    if (!Number.isFinite(documentId)) return;
+
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let active = false;
+    let latestClientX = event.clientX;
+    let scrollDirection = 0;
+    let scrollFrame = 0;
+
+    const scrollStep = () => {
+      if (!scrollDirection) {
+        scrollFrame = 0;
+        return;
+      }
+      tabs.scrollLeft += scrollDirection * 14;
+      track(latestClientX);
+    };
+    const track = (clientX: number) => {
+      latestClientX = clientX;
+      const slot = tabDropSlotAt(clientX, documentId);
+      markTabDropSlot(slot, documentId);
+      scrollDirection = tabDragScrollDirection(clientX);
+      if (scrollDirection && !scrollFrame) scrollFrame = window.requestAnimationFrame(scrollStep);
+      if (!scrollDirection && scrollFrame) {
+        window.cancelAnimationFrame(scrollFrame);
+        scrollFrame = 0;
+      }
+    };
+    const move = (pointerEvent: PointerEvent) => {
+      if (!active) {
+        const movedFarEnough = Math.abs(pointerEvent.clientX - startX) >= TAB_DRAG_START_DISTANCE
+          || Math.abs(pointerEvent.clientY - startY) >= TAB_DRAG_START_DISTANCE;
+        if (!movedFarEnough) return;
+        active = true;
+        tabDragActive = true;
+        source.classList.add("tab-dragging");
+        tabs.classList.add("reordering");
+      }
+      track(pointerEvent.clientX);
+    };
+    const stop = (pointerEvent: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      tabDragActive = false;
+      if (scrollFrame) window.cancelAnimationFrame(scrollFrame);
+      scrollFrame = 0;
+      scrollDirection = 0;
+      source.classList.remove("tab-dragging");
+      tabs.classList.remove("reordering");
+      clearTabDropMarks();
+      if (!active) return;
+      tabDragFinishedAt = Date.now();
+      if (pointerEvent.type === "pointerup") {
+        reorderDocumentToTabSlot(documentId, tabDropSlotAt(pointerEvent.clientX, documentId));
+      }
+    };
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+  });
+}
+
+function tabElements() {
+  return [...$("tabs").querySelectorAll<HTMLElement>(".tab")];
+}
+
+function tabDropSlotAt(clientX: number, documentId: number) {
+  const elements = tabElements();
+  for (let index = 0; index < elements.length; index += 1) {
+    const element = elements[index];
+    if (Number(element.dataset.documentId) === documentId) continue;
+    const rect = element.getBoundingClientRect();
+    if (clientX < rect.left + rect.width / 2) return index;
+  }
+  return elements.length;
+}
+
+function markTabDropSlot(slot: number, documentId: number) {
+  const elements = tabElements();
+  clearTabDropMarks();
+  const sourceIndex = elements.findIndex((element) => Number(element.dataset.documentId) === documentId);
+  if (sourceIndex < 0 || slot === sourceIndex || slot === sourceIndex + 1) return;
+  const before = slot < sourceIndex;
+  const target = before ? elements[slot] : elements[slot - 1];
+  target?.classList.add(before ? "drop-before" : "drop-after");
+}
+
+function clearTabDropMarks() {
+  $("tabs")
+    .querySelectorAll<HTMLElement>(".tab.drop-before, .tab.drop-after")
+    .forEach((element) => element.classList.remove("drop-before", "drop-after"));
+}
+
+function tabDragScrollDirection(clientX: number) {
+  const tabs = $<HTMLElement>("tabs");
+  if (tabs.scrollWidth <= tabs.clientWidth + 1) return 0;
+  const rect = tabs.getBoundingClientRect();
+  if (clientX < rect.left + TAB_DRAG_EDGE) return -1;
+  if (clientX > rect.right - TAB_DRAG_EDGE) return 1;
+  return 0;
+}
+
+function reorderDocumentToTabSlot(documentId: number, slot: number) {
+  const fromIndex = state.documents.findIndex((doc) => doc.id === documentId);
+  if (fromIndex < 0 || slot < 0) return;
+  const toIndex = slot > fromIndex ? slot - 1 : slot;
+  if (toIndex === fromIndex) return;
+  const [moved] = state.documents.splice(fromIndex, 1);
+  state.documents.splice(toIndex, 0, moved);
+  renderedTabsSignature = "";
+  renderChrome();
+  scheduleSessionSave();
 }
 
 function invisibleTabDocuments() {
@@ -5454,6 +5586,8 @@ function currentMarkdownPreviewWidth() {
 }
 
 function renderTabs() {
+  // Keep the tab DOM stable while a tab is being dragged.
+  if (tabDragActive) return;
   const signature = JSON.stringify(
     state.documents.map((item) => ({
       active: item.id === state.activeId,
@@ -5494,7 +5628,11 @@ function renderTabs() {
       event.stopPropagation();
       void closeDocument(item.id);
     });
-    tab.addEventListener("click", () => activateDocument(item.id));
+    tab.addEventListener("click", () => {
+      // A finished reorder leaves a click on the tab now under the pointer.
+      if (Date.now() - tabDragFinishedAt < 250) return;
+      activateDocument(item.id);
+    });
     tab.addEventListener("mousedown", (event) => {
       if (event.button === 1) event.preventDefault();
     });

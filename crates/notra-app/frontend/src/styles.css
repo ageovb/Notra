@@ -973,6 +973,39 @@ select:focus-visible {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
+.tabs-list.reordering {
+  cursor: grabbing;
+}
+
+.tab.tab-dragging {
+  opacity: 0.55;
+}
+
+.tab.drop-before,
+.tab.drop-after {
+  position: relative;
+}
+
+.tab.drop-before::before,
+.tab.drop-after::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 78%, transparent);
+  pointer-events: none;
+}
+
+.tab.drop-before::before {
+  left: -3px;
+}
+
+.tab.drop-after::before {
+  right: -3px;
+}
+
 .workspace {
   --explorer-width: 272px;
   --explorer-resize-width: 6px;
