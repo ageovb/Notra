@@ -133,7 +133,7 @@
           <button class="tool-button" id="redoButton" aria-label="重做" title="重做"><span class="icon-slot" data-icon="Redo2"></span><span data-label>重做</span></button>
           <button class="tool-button" id="uppercaseButton" aria-label="转为大写" title="转为大写"><span class="icon-slot" data-icon="CaseUpper"></span><span data-label>转为大写</span></button>
           <button class="tool-button" id="lowercaseButton" aria-label="转为小写" title="转为小写"><span class="icon-slot" data-icon="CaseLower"></span><span data-label>转为小写</span></button>
-          <button class="tool-button" id="formatDocumentButton" aria-label="格式化文档 Shift+Alt+F" title="格式化文档 Shift+Alt+F" aria-keyshortcuts="Shift+Alt+F"><span class="icon-slot" data-icon="Braces"></span><span data-label>格式化文档</span></button>
+          <button class="tool-button" id="formatDocumentButton" aria-label="格式化文档 Ctrl+Alt+L" title="格式化文档 Ctrl+Alt+L" aria-keyshortcuts="Ctrl+Alt+L"><span class="icon-slot" data-icon="Braces"></span><span data-label>格式化文档</span></button>
           <span class="tool-divider"></span>
           <button class="tool-button" id="findButton" aria-label="查找 Ctrl+F" title="查找 Ctrl+F" aria-keyshortcuts="Control+F"><span class="icon-slot" data-icon="Search"></span><span data-label>查找</span></button>
           <button class="tool-button" id="replaceButton" aria-label="替换 Ctrl+H" title="替换 Ctrl+H" aria-keyshortcuts="Control+H"><span class="icon-slot" data-icon="Replace"></span><span data-label>替换</span></button>
@@ -179,9 +179,20 @@
           <div class="menu-divider"></div>
           <button class="menu-row" id="menuUppercaseButton" role="menuitem"><span class="icon-slot" data-icon="CaseUpper"></span><strong>转为大写</strong><small></small></button>
           <button class="menu-row" id="menuLowercaseButton" role="menuitem"><span class="icon-slot" data-icon="CaseLower"></span><strong>转为小写</strong><small></small></button>
-          <button class="menu-row" id="menuFormatDocumentButton" role="menuitem"><span class="icon-slot" data-icon="Braces"></span><strong>格式化文档</strong><small>Shift+Alt+F</small></button>
+          <button class="menu-row" id="menuFormatDocumentButton" role="menuitem"><span class="icon-slot" data-icon="Braces"></span><strong>格式化文档</strong><small>Ctrl+Alt+L</small></button>
           <div class="menu-divider"></div>
           <button class="menu-row" id="menuSelectAllButton" role="menuitem"><span class="icon-slot" data-icon="Check"></span><strong>全选</strong><small>Ctrl+A</small></button>
+        </div>
+      </section>
+
+      <section class="popover app-menu hidden" id="editorContextMenu" role="menu" aria-label="编辑器菜单">
+        <div class="menu-list">
+          <button class="menu-row" id="editorMenuCutButton" role="menuitem"><span class="icon-slot" data-icon="Scissors"></span><strong>剪切</strong><small>Ctrl+X</small></button>
+          <button class="menu-row" id="editorMenuCopyButton" role="menuitem"><span class="icon-slot" data-icon="Copy"></span><strong>复制</strong><small>Ctrl+C</small></button>
+          <button class="menu-row" id="editorMenuPasteButton" role="menuitem"><span class="icon-slot" data-icon="ClipboardPaste"></span><strong>粘贴</strong><small>Ctrl+V</small></button>
+          <div class="menu-divider"></div>
+          <button class="menu-row" id="editorMenuSelectAllButton" role="menuitem"><span class="icon-slot" data-icon="Check"></span><strong>全选</strong><small>Ctrl+A</small></button>
+          <button class="menu-row" id="editorMenuFormatDocumentButton" role="menuitem"><span class="icon-slot" data-icon="Braces"></span><strong>格式化文档</strong><small>Ctrl+Alt+L</small></button>
         </div>
       </section>
 

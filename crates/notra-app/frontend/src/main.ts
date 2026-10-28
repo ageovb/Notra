@@ -1246,6 +1246,7 @@ function bootstrap() {
   bindActions();
   bindTabScroller();
   bindFileDrop();
+  bindEditorContextMenu();
   bindWindowControls();
   bindWindowCloseGuard();
   bindExplorerResize();
@@ -1458,6 +1459,27 @@ function isDropPositionInsideEditor(position: { x: number; y: number }) {
   const x = position.x / scale;
   const y = position.y / scale;
   return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+function bindEditorContextMenu() {
+  // Capture phase on the Monaco host: stopping here keeps the webview's native
+  // menu out and leaves the markdown surface to its own context menu.
+  $("editor").addEventListener("contextmenu", openEditorContextMenu, true);
+}
+
+function openEditorContextMenu(event: Event) {
+  const pointerEvent = event as MouseEvent;
+  if (isMarkdownWysiwygActive()) return;
+  pointerEvent.preventDefault();
+  pointerEvent.stopPropagation();
+  closeMenus();
+  closeFontDropdowns();
+  const doc = activeDocument();
+  $<HTMLButtonElement>("editorMenuFormatDocumentButton").disabled =
+    doc.readOnly || !isFormattingActionSupported(doc);
+  $<HTMLButtonElement>("editorMenuCutButton").disabled = doc.readOnly;
+  $<HTMLButtonElement>("editorMenuPasteButton").disabled = doc.readOnly;
+  showContextMenu($("editorContextMenu"), pointerEvent, 224, 216);
 }
 
 function setFileDropActive(active: boolean) {
@@ -2100,6 +2122,11 @@ function bindAppMenus() {
   bindMenuAction("menuUppercaseButton", transformToUppercase);
   bindMenuAction("menuLowercaseButton", transformToLowercase);
   bindMenuAction("menuFormatDocumentButton", () => void formatActiveDocument());
+  bindMenuAction("editorMenuCutButton", () => runEditorAction("editor.action.clipboardCutAction"));
+  bindMenuAction("editorMenuCopyButton", () => runEditorAction("editor.action.clipboardCopyAction"));
+  bindMenuAction("editorMenuPasteButton", () => runEditorAction("editor.action.clipboardPasteAction"));
+  bindMenuAction("editorMenuSelectAllButton", selectAllEditor);
+  bindMenuAction("editorMenuFormatDocumentButton", () => void formatActiveDocument());
   bindMenuAction("menuSelectAllButton", selectAllEditor);
   bindMenuAction("menuFindButton", () => {
     setFindView("find");
@@ -3730,6 +3757,7 @@ function activeContextMenu() {
     $("tabOverflowMenu"),
     $("tabMenu"),
     $("treeMenu"),
+    $("editorContextMenu"),
     $("markdownContextMenu"),
     $("markdownImageContextMenu"),
     $("markdownTableContextMenu"),
@@ -5572,6 +5600,11 @@ function commandElementIds(): Record<string, string> {
   menuUppercaseButton: "edit.uppercase",
   menuLowercaseButton: "edit.lowercase",
   menuFormatDocumentButton: "editor.formatDocument",
+  editorMenuCutButton: "edit.cut",
+  editorMenuCopyButton: "edit.copy",
+  editorMenuPasteButton: "edit.paste",
+  editorMenuSelectAllButton: "edit.selectAll",
+  editorMenuFormatDocumentButton: "editor.formatDocument",
   menuSelectAllButton: "edit.selectAll",
   menuFindButton: "search.find",
   menuReplaceButton: "search.replace",
@@ -7613,6 +7646,7 @@ function closeMenus() {
   $("recentMenu").classList.add("hidden");
   $("tabMenu").classList.add("hidden");
   $("treeMenu").classList.add("hidden");
+  $("editorContextMenu").classList.add("hidden");
   $("markdownContextMenu").classList.add("hidden");
   $("markdownImageContextMenu").classList.add("hidden");
   $("markdownTableContextMenu").classList.add("hidden");

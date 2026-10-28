@@ -118,6 +118,7 @@ for (const [profileName, profile] of profiles) {
     : new Set([
       "Ctrl+B:editor.goToBracket,markdown.bold",
       "Ctrl+0:markdown.paragraph,view.zoomReset",
+      "Ctrl+Alt+L:editor.formatDocument,markdown.link",
     ]);
   for (const [binding, commandIds] of commandsByBinding) {
     if (commandIds.length < 2) continue;
