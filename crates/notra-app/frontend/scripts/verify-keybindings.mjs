@@ -145,16 +145,16 @@ for (const [profileName, profile] of profiles) {
   }
 }
 
-const monacoRoot = new URL("../node_modules/monaco-editor/esm/vs/editor/", import.meta.url);
-const monacoSources = readJavaScriptTree(monacoRoot);
+const monacoModules = readMonacoImportClosure();
 const monacoActionIds = new Set([
   ...[...mainSource.matchAll(/editorCommand\("[^"]+",\s*"[^"]+",\s*"([^"]+)"/g)].map((match) => match[1]),
   ...[...mainSource.matchAll(/runEditorAction\("([^"]+)"/g)].map((match) => match[1]),
 ]);
 for (const actionId of monacoActionIds) {
-  if (!monacoSources.includes(`'${actionId}'`) && !monacoSources.includes(`"${actionId}"`)) {
-    failures.push(`Monaco action 不存在：${actionId}`);
-  }
+  const registered = monacoModules.some(
+    (text) => text.includes(`'${actionId}'`) || text.includes(`"${actionId}"`),
+  );
+  if (!registered) failures.push(`Monaco action 未随 main.ts 导入的模块注册：${actionId}`);
 }
 
 if (keybindings.resolveKeymapProfile("adaptive", "workspace") !== "vscode") {
@@ -208,15 +208,27 @@ function physicalKeyEvent(stroke) {
   };
 }
 
-function readJavaScriptTree(url) {
-  const files = [];
-  const visit = (directory) => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const path = new URL(`${entry.name}${entry.isDirectory() ? "/" : ""}`, directory);
-      if (entry.isDirectory()) visit(path);
-      else if (entry.name.endsWith(".js")) files.push(fs.readFileSync(path, "utf8"));
+// main.ts 只 import 部分 contribution，未导入的模块即使存在于 node_modules 也不会注册 action
+function readMonacoImportClosure() {
+  const esmRoot = new URL("../node_modules/monaco-editor/esm/", import.meta.url);
+  const pending = [...mainSource.matchAll(/(?:^|\n)[ \t]*import\s+(?:[^;]*?\s+from\s+)?"(monaco-editor\/esm\/[^"?]+)"/g)]
+    .map((match) => new URL(`${match[1].slice("monaco-editor/esm/".length)}.js`, esmRoot))
+    .filter((url) => fs.existsSync(url));
+  const visited = new Set();
+  const texts = [];
+  while (pending.length > 0) {
+    const file = pending.shift();
+    if (visited.has(file.href)) continue;
+    visited.add(file.href);
+    const text = fs.readFileSync(file, "utf8");
+    texts.push(text);
+    const directory = new URL("./", file);
+    for (const match of text.matchAll(/(?:from|import)\s+["'](\.[^"']*?)["']/g)) {
+      const specifier = match[1].split("?")[0];
+      if (!specifier.endsWith(".js")) continue;
+      const dependency = new URL(specifier, directory);
+      if (fs.existsSync(dependency)) pending.push(dependency);
     }
-  };
-  visit(url);
-  return files.join("\n");
+  }
+  return texts;
 }

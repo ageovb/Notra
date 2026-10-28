@@ -127,7 +127,14 @@ import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker"
 import "monaco-editor/esm/vs/basic-languages/monaco.contribution";
 import "monaco-editor/esm/vs/editor/contrib/linesOperations/browser/linesOperations";
 import "monaco-editor/esm/vs/editor/contrib/bracketMatching/browser/bracketMatching";
+import "monaco-editor/esm/vs/editor/contrib/folding/browser/folding";
+import "monaco-editor/esm/vs/editor/contrib/comment/browser/comment";
+import "monaco-editor/esm/vs/editor/contrib/multicursor/browser/multicursor";
+import "monaco-editor/esm/vs/editor/contrib/suggest/browser/suggestController";
+import "monaco-editor/esm/vs/editor/contrib/parameterHints/browser/parameterHints";
+import "monaco-editor/esm/vs/editor/contrib/rename/browser/rename";
 import "monaco-editor/esm/vs/editor/contrib/wordHighlighter/browser/wordHighlighter";
+import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneGotoSymbolQuickAccess";
 import "monaco-editor/esm/vs/language/json/monaco.contribution";
 import "./styles.css";
 
@@ -1515,9 +1522,9 @@ function registerAppCommands() {
     command("tabs.closeSaved", "关闭已保存标签", "标签", closeSavedTabs),
     command("edit.undo", "撤销", "编辑", undoEditor, { when: () => isEditorSurfaceFocused() }),
     command("edit.redo", "重做", "编辑", redoEditor, { when: () => isEditorSurfaceFocused() }),
-    command("edit.cut", "剪切", "编辑", () => runEditorAction("editor.action.clipboardCutAction"), { when: () => isEditorSurfaceFocused() }),
-    command("edit.copy", "复制", "编辑", () => runEditorAction("editor.action.clipboardCopyAction"), { when: () => isEditorSurfaceFocused() }),
-    command("edit.paste", "粘贴", "编辑", () => runEditorAction("editor.action.clipboardPasteAction"), { when: () => isEditorSurfaceFocused() }),
+    command("edit.cut", "剪切", "编辑", () => void runClipboardAction("cut"), { when: () => isEditorSurfaceFocused() }),
+    command("edit.copy", "复制", "编辑", () => void runClipboardAction("copy"), { when: () => isEditorSurfaceFocused() }),
+    command("edit.paste", "粘贴", "编辑", () => void runClipboardAction("paste"), { when: () => isEditorSurfaceFocused() }),
     command("edit.pastePlain", "粘贴为纯文本", "编辑", pastePlainText, { when: () => isEditorSurfaceFocused() }),
     command("edit.selectAll", "全选", "选择", selectAllEditor, { when: () => isEditorSurfaceFocused() }),
     command("edit.uppercase", "转为大写", "编辑", transformToUppercase, { when: editorOnly }),
@@ -7683,21 +7690,46 @@ function runEditorAction(actionId: string, successMessage?: string) {
       markdownEditor.selectAll();
       return;
     }
-    const clipboardCommands: Record<string, string> = {
-      "editor.action.clipboardCopyAction": "copy",
-      "editor.action.clipboardCutAction": "cut",
-      "editor.action.clipboardPasteAction": "paste",
-    };
-    const clipboardCommand = clipboardCommands[actionId];
-    if (clipboardCommand) {
-      markdownEditor.focus();
-      document.execCommand(clipboardCommand);
-      return;
-    }
   }
   editor.trigger("command", actionId, null);
   editor.focus();
   if (successMessage) log(successMessage);
+}
+
+async function runClipboardAction(kind: "cut" | "copy" | "paste") {
+  if (isMarkdownWysiwygActive() && markdownEditor) {
+    markdownEditor.focus();
+    document.execCommand(kind);
+    return;
+  }
+  await runMonacoClipboard(kind);
+}
+
+// Monaco 的 clipboard contribution 没有打包，菜单和命令面板里的剪切/复制/粘贴直接读写系统剪贴板。
+async function runMonacoClipboard(kind: "cut" | "copy" | "paste") {
+  if (kind !== "copy" && activeDocument().readOnly) return;
+  const selections = editor.getSelections() ?? [];
+  try {
+    if (kind === "paste") {
+      const text = await navigator.clipboard.readText();
+      editor.executeEdits("paste", selections.map((range) => ({ range, text, forceMoveMarkers: true })));
+      return;
+    }
+    const model = editor.getModel();
+    const text = selections
+      .map((range) => (model ? model.getValueInRange(range) : ""))
+      .filter((value) => value.length > 0)
+      .join("\n");
+    if (kind === "copy" && !text) return;
+    await navigator.clipboard.writeText(text);
+    if (kind === "cut") {
+      editor.executeEdits("cut", selections.map((range) => ({ range, text: "", forceMoveMarkers: true })));
+    }
+  } catch (error) {
+    log(`剪贴板操作失败：${String(error)}`);
+  } finally {
+    editor.focus();
+  }
 }
 
 function isFormattingActionSupported(doc = activeDocument()) {
