@@ -143,6 +143,7 @@
           <button class="menu-row" id="menuFormatDocumentButton" role="menuitem"><span class="icon-slot" data-icon="Braces"></span><strong>格式化文档</strong><small>Shift+Alt+F</small></button>
           <div class="menu-divider"></div>
           <button class="menu-row" id="menuSelectAllButton" role="menuitem"><span class="icon-slot" data-icon="Check"></span><strong>全选</strong><small>Ctrl+A</small></button>
+          <button class="menu-row" id="menuColumnSelectionButton" role="menuitemcheckbox" aria-checked="false"><span class="icon-slot menu-check" data-icon="Check"></span><strong>列编辑模式</strong><small>Shift+Alt+C</small></button>
         </div>
       </section>
 
@@ -163,7 +164,6 @@
           <button class="menu-row" id="menuToolbarButton" role="menuitemcheckbox" aria-checked="true"><span class="icon-slot menu-check" data-icon="Check"></span><strong>工具栏</strong><small></small></button>
           <div class="menu-divider"></div>
           <button class="menu-row" id="menuWordWrapButton" role="menuitem"><span class="icon-slot" data-icon="WrapText"></span><strong>自动换行</strong><small></small></button>
-          <button class="menu-row" id="menuColumnSelectionButton" role="menuitemcheckbox" aria-checked="false"><span class="icon-slot menu-check" data-icon="Check"></span><strong>列编辑模式</strong><small></small></button>
           <button class="menu-row" id="menuMarkdownWysiwygButton" role="menuitemradio"><span class="icon-slot" data-icon="NotebookPen"></span><strong>Markdown 即时编辑</strong><small></small></button>
           <button class="menu-row" id="menuMarkdownSplitButton" role="menuitemradio"><span class="icon-slot" data-icon="Columns2"></span><strong>Markdown 分屏预览</strong><small></small></button>
           <button class="menu-row" id="menuMarkdownSourceButton" role="menuitemradio"><span class="icon-slot" data-icon="FileCode2"></span><strong>Markdown 源码</strong><small></small></button>
@@ -491,7 +491,7 @@
                 <span class="settings-row-icon icon-slot" data-icon="Columns2"></span>
                 <div>
                   <strong>列编辑模式</strong>
-                  <span>使用矩形列块进行选择与编辑</span>
+                  <span>使用矩形列块进行选择与编辑；也可按住 Alt 拖动鼠标临时列选</span>
                 </div>
                 <div class="seg-control" id="settingsColumnSelectionControl">
                   <button data-value="off">关闭</button>
@@ -574,6 +574,7 @@
                 <div class="seg-control wide keymap-profile-control" id="settingsKeymapProfileControl">
                   <button data-value="vscode">VS Code</button>
                   <button data-value="notepad-plus-plus">Notepad++</button>
+                  <button data-value="jetbrains">JetBrains</button>
                   <button data-value="adaptive">跟随模式</button>
                 </div>
               </div>

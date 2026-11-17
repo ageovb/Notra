@@ -1244,6 +1244,8 @@ function bootstrap() {
     tabCompletion: "on",
     wordBasedSuggestions: "currentDocument",
     quickSuggestions: { other: true, comments: false, strings: false },
+    // 保持 ctrlCmd（而非 "alt"）：Monaco 在拖动选区时若检测到 altKey 会走矩形列选
+    // （viewController.dispatchMouse / mouseHandler），这样按住 Alt 拖动鼠标即可临时列选。
     multiCursorModifier: "ctrlCmd",
     multiCursorPaste: "spread",
     contextmenu: false,

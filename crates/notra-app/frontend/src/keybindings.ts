@@ -1,4 +1,4 @@
-export type KeymapProfile = "vscode" | "notepad-plus-plus" | "adaptive";
+export type KeymapProfile = "vscode" | "notepad-plus-plus" | "jetbrains" | "adaptive";
 export type ResolvedKeymapProfile = Exclude<KeymapProfile, "adaptive">;
 export type KeybindingOverrides = Record<string, string | null>;
 export type KeybindingMap = Record<string, readonly string[]>;
@@ -6,6 +6,7 @@ export type KeybindingMap = Record<string, readonly string[]>;
 export const KEYMAP_PROFILE_LABELS: Record<KeymapProfile, string> = {
   vscode: "VS Code",
   "notepad-plus-plus": "Notepad++",
+  jetbrains: "JetBrains",
   adaptive: "跟随模式",
 };
 
@@ -176,6 +177,95 @@ export const NOTEPAD_PLUS_PLUS_KEYMAP: KeybindingMap = {
   "markdown.modeSource": ["Ctrl+Alt+3"],
 };
 
+export const JETBRAINS_KEYMAP: KeybindingMap = {
+  "file.new": ["Alt+Insert"],
+  "file.open": ["Ctrl+O"],
+  "file.openFolder": ["Ctrl+Alt+O"],
+  "workspace.close": ["Ctrl+Alt+F4"],
+  "file.save": ["Ctrl+S"],
+  "file.saveAs": ["Ctrl+Shift+S"],
+  "file.saveAll": ["Ctrl+Shift+Alt+S"],
+  "file.close": ["Ctrl+F4"],
+  "file.reopenClosed": ["Ctrl+Shift+T"],
+  "tabs.next": ["Alt+ArrowRight"],
+  "tabs.previous": ["Alt+ArrowLeft"],
+  "tabs.closeOthers": ["Ctrl+Shift+Alt+T"],
+  "edit.undo": ["Ctrl+Z"],
+  "edit.redo": ["Ctrl+Shift+Z"],
+  "edit.cut": ["Ctrl+X"],
+  "edit.copy": ["Ctrl+C"],
+  "edit.paste": ["Ctrl+V"],
+  "edit.pastePlain": ["Ctrl+Shift+V"],
+  "edit.selectAll": ["Ctrl+A"],
+  "edit.uppercase": ["Ctrl+Shift+U"],
+  "edit.lowercase": ["Ctrl+U"],
+  "editor.duplicateLineDown": ["Ctrl+D"],
+  "editor.insertLineAfter": ["Shift+Enter"],
+  "editor.insertLineBefore": ["Ctrl+Enter"],
+  "editor.indentLines": ["Tab"],
+  "editor.outdentLines": ["Shift+Tab"],
+  "editor.deleteLine": ["Ctrl+Y"],
+  "editor.moveLineUp": ["Ctrl+Shift+ArrowUp"],
+  "editor.moveLineDown": ["Ctrl+Shift+ArrowDown"],
+  "editor.toggleLineComment": ["Ctrl+/"],
+  "editor.toggleBlockComment": ["Ctrl+Shift+/"],
+  "editor.formatDocument": ["Ctrl+Alt+L"],
+  "editor.selectNextOccurrence": ["Alt+J"],
+  "editor.selectAllOccurrences": ["Ctrl+Shift+Alt+J"],
+  "editor.addCursorAbove": ["Ctrl+Alt+ArrowUp"],
+  "editor.addCursorBelow": ["Ctrl+Alt+ArrowDown"],
+  "editor.triggerSuggest": ["Ctrl+Space"],
+  "editor.triggerParameterHints": ["Ctrl+P"],
+  "editor.quickOutline": ["Ctrl+F12"],
+  "editor.goToBracket": ["Ctrl+["],
+  "editor.renameSymbol": ["Shift+F6"],
+  "editor.fold": ["Ctrl+-"],
+  "editor.unfold": ["Ctrl+="],
+  "editor.foldAll": ["Ctrl+Shift+-"],
+  "editor.unfoldAll": ["Ctrl+Shift+="],
+  "search.find": ["Ctrl+F"],
+  "search.replace": ["Ctrl+R"],
+  "search.next": ["F3"],
+  "search.previous": ["Shift+F3"],
+  "search.workspaceFind": ["Ctrl+Shift+F"],
+  "search.workspaceReplace": ["Ctrl+Shift+R"],
+  "navigation.goToLine": ["Ctrl+G"],
+  "navigation.quickOpen": ["Ctrl+Shift+N"],
+  "navigation.commandPalette": ["Ctrl+Shift+A"],
+  "navigation.focusExplorer": ["Alt+1"],
+  "view.toggleExplorer": ["Ctrl+Shift+E"],
+  "view.openSettings": ["Ctrl+Alt+S"],
+  "view.toggleRightSidebar": ["Ctrl+Shift+Alt+B"],
+  "view.toggleWordWrap": ["Alt+Z"],
+  "view.toggleColumnSelection": ["Shift+Alt+C"],
+  "view.zoomIn": ["Ctrl+Shift+]"],
+  "view.zoomOut": ["Ctrl+Shift+["],
+  "view.zoomReset": ["Ctrl+0"],
+  "view.toggleTheme": ["Ctrl+Alt+T"],
+  "bookmark.toggle": ["F11"],
+  "bookmark.next": ["Alt+ArrowDown"],
+  "bookmark.previous": ["Alt+ArrowUp"],
+  "markdown.outline": ["Ctrl+Shift+O"],
+  "markdown.bold": ["Ctrl+B"],
+  "markdown.italic": ["Ctrl+I"],
+  "markdown.inlineCode": ["Ctrl+Shift+`"],
+  "markdown.link": ["Ctrl+K"],
+  "markdown.heading1": ["Ctrl+1"],
+  "markdown.heading2": ["Ctrl+2"],
+  "markdown.heading3": ["Ctrl+3"],
+  "markdown.heading4": ["Ctrl+4"],
+  "markdown.heading5": ["Ctrl+5"],
+  "markdown.heading6": ["Ctrl+6"],
+  "markdown.paragraph": ["Ctrl+0"],
+  "markdown.insertImage": ["Ctrl+Shift+I"],
+  "markdown.insertTable": ["Ctrl+T"],
+  "markdown.codeBlock": ["Ctrl+Shift+K"],
+  "markdown.mathBlock": ["Ctrl+Shift+M"],
+  "markdown.modeWysiwyg": ["Ctrl+Alt+1"],
+  "markdown.modeSplit": ["Ctrl+Alt+2"],
+  "markdown.modeSource": ["Ctrl+Alt+3"],
+};
+
 const MODIFIER_ORDER = ["Ctrl", "Shift", "Alt", "Meta"] as const;
 const KEY_ALIASES: Record<string, string> = {
   " ": "Space",
@@ -222,7 +312,10 @@ export function resolveKeymapProfile(profile: KeymapProfile, workMode: "single" 
 }
 
 export function profileKeymap(profile: KeymapProfile, workMode: "single" | "workspace"): KeybindingMap {
-  return resolveKeymapProfile(profile, workMode) === "vscode" ? VSCODE_KEYMAP : NOTEPAD_PLUS_PLUS_KEYMAP;
+  const resolved = resolveKeymapProfile(profile, workMode);
+  if (resolved === "vscode") return VSCODE_KEYMAP;
+  if (resolved === "jetbrains") return JETBRAINS_KEYMAP;
+  return NOTEPAD_PLUS_PLUS_KEYMAP;
 }
 
 export function commandBindings(
@@ -294,5 +387,5 @@ export function ariaKeyShortcut(binding: string): string {
 }
 
 export function isKeymapProfile(value: unknown): value is KeymapProfile {
-  return value === "vscode" || value === "notepad-plus-plus" || value === "adaptive";
+  return value === "vscode" || value === "notepad-plus-plus" || value === "jetbrains" || value === "adaptive";
 }

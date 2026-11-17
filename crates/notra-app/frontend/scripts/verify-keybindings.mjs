@@ -16,6 +16,7 @@ const keybindings = await import(`data:text/javascript;base64,${Buffer.from(java
 const profiles = [
   ["VS Code", keybindings.VSCODE_KEYMAP],
   ["Notepad++", keybindings.NOTEPAD_PLUS_PLUS_KEYMAP],
+  ["JetBrains", keybindings.JETBRAINS_KEYMAP],
 ];
 const implementedCommands = new Set(
   [...mainSource.matchAll(/(?:command|editorCommand|markdownCommand)\("([^"]+)"/g)].map((match) => match[1]),
@@ -119,11 +120,15 @@ for (const [profileName, profile] of profiles) {
       "Ctrl+B:markdown.bold,view.toggleExplorer",
       "Ctrl+0:markdown.paragraph,view.zoomReset",
     ])
-    : new Set([
-      "Ctrl+Alt+L:editor.formatDocument,markdown.link",
-      "Ctrl+B:editor.goToBracket,markdown.bold",
-      "Ctrl+0:markdown.paragraph,view.zoomReset",
-    ]);
+    : profileName === "JetBrains"
+      ? new Set([
+        "Ctrl+0:markdown.paragraph,view.zoomReset",
+      ])
+      : new Set([
+        "Ctrl+Alt+L:editor.formatDocument,markdown.link",
+        "Ctrl+B:editor.goToBracket,markdown.bold",
+        "Ctrl+0:markdown.paragraph,view.zoomReset",
+      ]);
   for (const [binding, commandIds] of commandsByBinding) {
     if (commandIds.length < 2) continue;
     const signature = `${binding}:${[...commandIds].sort().join(",")}`;
@@ -168,12 +173,27 @@ if (keybindings.resolveKeymapProfile("adaptive", "workspace") !== "vscode") {
 if (keybindings.resolveKeymapProfile("adaptive", "single") !== "notepad-plus-plus") {
   failures.push("跟随模式在单文件模式中未解析为 Notepad++");
 }
+if (keybindings.resolveKeymapProfile("jetbrains", "workspace") !== "jetbrains") {
+  failures.push("JetBrains 方案在工作区中未解析为 JetBrains");
+}
+if (keybindings.resolveKeymapProfile("jetbrains", "single") !== "jetbrains") {
+  failures.push("JetBrains 方案在单文件模式中未解析为 JetBrains");
+}
+if (keybindings.profileKeymap("jetbrains", "workspace") !== keybindings.JETBRAINS_KEYMAP) {
+  failures.push("JetBrains 方案没有返回 JetBrains 键位表");
+}
+if (!keybindings.isKeymapProfile("jetbrains")) {
+  failures.push("isKeymapProfile 未识别 jetbrains");
+}
+if (!mainSource.includes('multiCursorModifier: "ctrlCmd"')) {
+  failures.push("编辑器未保持 ctrlCmd 多光标修饰键，Alt+拖动列选会失效");
+}
 
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exitCode = 1;
 } else {
-  console.log(`快捷键验证通过：2 套键位，${testedStrokes} 个按键 stroke，${monacoActionIds.size} 个 Monaco action。`);
+  console.log(`快捷键验证通过：${profiles.length} 套键位，${testedStrokes} 个按键 stroke，${monacoActionIds.size} 个 Monaco action。`);
 }
 
 // 按声明的键位还原浏览器真正上报的 key/code/shiftKey，避免用键位字符串自证
